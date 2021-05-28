@@ -45,7 +45,7 @@ class Unsatisfiable (msg :: ErrorMessage) where
 -- instantiating 'unsatisfiable' to 'Data.Void.Void' and using @EmptyCase@.
 --
 -- @
--- case 'unsatisfiable' @msg @Void of {}
+-- case 'unsatisfiable' \@msg \@Void of {}
 -- @
 --
 unsatisfiable :: forall msg a. Unsatisfiable msg => a
