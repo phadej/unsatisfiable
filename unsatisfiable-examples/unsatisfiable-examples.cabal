@@ -45,3 +45,13 @@ executable example4
   build-depends:
     , base
     , unsatisfiable
+
+executable example5
+  default-language: Haskell2010
+  hs-source-dirs:   examples
+  ghc-options:      -Wall
+  main-is:          example5.hs
+  build-depends:
+    , base
+    , constraints    ^>=0.13
+    , unsatisfiable
