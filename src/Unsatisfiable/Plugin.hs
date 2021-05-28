@@ -76,6 +76,9 @@ import qualified TcPluginM  as Plugins
 -- instance (Unsatisfiable Msg, C Int) => D Int
 -- @
 --
+-- When GHC looks for valid type hole fits this plugin might print some errors.
+-- You may disable them with @-fno-show-valid-hole-fits@ ghc option.
+--
 plugin :: Plugins.Plugin
 plugin = Plugins.defaultPlugin
     { Plugins.tcPlugin            = \_args -> Just tcPlugin
