@@ -14,6 +14,16 @@
 --   #-}
 {-# OPTIONS_GHC -dcore-lint #-}
 {-# OPTIONS_GHC -fplugin=Unsatisfiable #-}
+-- | Note the @-fdefer-type-errors@.
+--
+-- This example compiles, but when run it prints:
+--
+-- @
+-- example3: Unsatisfiable at  examples/example3.hs:34:13-38
+-- This Max is not a Monoid
+-- (deferred unsatisfiable type error)
+-- @
+--
 module Main (main) where
 
 import GHC.TypeLits
@@ -24,7 +34,7 @@ newtype Max a = Max a
 
 instance Ord a => Semigroup (Max a) where
     Max a <> Max b = Max (max a b)
-    
+
 type Msg = 'Text "This Max is not a Monoid"
 instance Unsatisfiable Msg => Monoid (Max a) where
     mempty = unsatisfiable @Msg

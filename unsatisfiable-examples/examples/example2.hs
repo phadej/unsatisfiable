@@ -14,6 +14,10 @@
 --   #-}
 {-# OPTIONS_GHC -dcore-lint #-}
 {-# OPTIONS_GHC -fplugin=Unsatisfiable #-}
+-- | This example is showing that we don't need to add a @Ord a@
+-- to the @Monoid (Max a)@ instance definition.
+-- The plugin makes @'Unsatisfiable' Msg@ imply it.
+--
 module Main (main) where
 
 import GHC.TypeLits
