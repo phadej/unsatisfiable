@@ -37,5 +37,13 @@ class Unsatisfiable (msg :: ErrorMessage) where
     unsatisfiable_ :: a
 
 -- | See 'Unsatisfiable'.
+--
+-- If you need some other @TYPE@, you can use @case@ trick by
+-- instantiating 'unsatisfiable' to 'Data.Void.Void' and using @EmptyCase@.
+--
+-- @
+-- case 'unsatisfiable' @msg @Void of {}
+-- @
+--
 unsatisfiable :: forall msg a. Unsatisfiable msg => a
 unsatisfiable = unsatisfiable_ @msg @a

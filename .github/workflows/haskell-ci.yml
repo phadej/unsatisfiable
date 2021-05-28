@@ -113,7 +113,6 @@ jobs:
         run: |
           touch cabal.project
           echo "packages: $GITHUB_WORKSPACE/source/." >> cabal.project
-          echo "packages: $GITHUB_WORKSPACE/source/unsatisfiable-examples" >> cabal.project
           cat cabal.project
       - name: sdist
         run: |
@@ -127,19 +126,14 @@ jobs:
         run: |
           PKGDIR_unsatisfiable="$(find "$GITHUB_WORKSPACE/unpacked" -maxdepth 1 -type d -regex '.*/unsatisfiable-[0-9.]*')"
           echo "PKGDIR_unsatisfiable=${PKGDIR_unsatisfiable}" >> $GITHUB_ENV
-          PKGDIR_unsatisfiable_examples="$(find "$GITHUB_WORKSPACE/unpacked" -maxdepth 1 -type d -regex '.*/unsatisfiable-examples-[0-9.]*')"
-          echo "PKGDIR_unsatisfiable_examples=${PKGDIR_unsatisfiable_examples}" >> $GITHUB_ENV
           touch cabal.project
           touch cabal.project.local
           echo "packages: ${PKGDIR_unsatisfiable}" >> cabal.project
-          echo "packages: ${PKGDIR_unsatisfiable_examples}" >> cabal.project
           echo "package unsatisfiable" >> cabal.project
-          echo "    ghc-options: -Werror=missing-methods" >> cabal.project
-          echo "package unsatisfiable-examples" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
           cat >> cabal.project <<EOF
           EOF
-          $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: $_ installed\n" unless /^(unsatisfiable|unsatisfiable-examples)$/; }' >> cabal.project.local
+          $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: $_ installed\n" unless /^(unsatisfiable)$/; }' >> cabal.project.local
           cat cabal.project
           cat cabal.project.local
       - name: dump install plan
@@ -165,8 +159,6 @@ jobs:
       - name: cabal check
         run: |
           cd ${PKGDIR_unsatisfiable} || false
-          ${CABAL} -vnormal check
-          cd ${PKGDIR_unsatisfiable_examples} || false
           ${CABAL} -vnormal check
       - name: haddock
         run: |
