@@ -60,7 +60,7 @@ import qualified TcPluginM  as Plugins
 --
 -- Secondly, when 'Unsatisfiable.Class.Unsatisfiable' constraint is given,
 -- all other constraints are solved automatically using 'unsatisfiable'
--- as the evidence. This is useful 
+-- as the evidence. This is useful
 --
 -- @
 -- class C a => D a

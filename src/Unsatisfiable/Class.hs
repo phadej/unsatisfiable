@@ -33,6 +33,9 @@ import GHC.TypeLits (ErrorMessage)
 --
 -- See discussion in [GHC#17310](https://gitlab.haskell.org/ghc/ghc/-/issues/18310).
 --
+-- There are some examples of using this class and plugin
+-- at https://github.com/phadej/unsatisfiable/tree/master/unsatisfiable-examples/examples
+--
 class Unsatisfiable (msg :: ErrorMessage) where
     unsatisfiable_ :: a
 
