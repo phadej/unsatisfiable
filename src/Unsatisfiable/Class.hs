@@ -31,7 +31,7 @@ import GHC.TypeLits (ErrorMessage)
 -- The custom error reporting is done using 'Unsatisfiable.plugin' type-checker
 -- plugin.
 --
--- See discussion in [GHC#17310](https://gitlab.haskell.org/ghc/ghc/-/issues/18310).
+-- See discussion in [GHC#18310](https://gitlab.haskell.org/ghc/ghc/-/issues/18310).
 --
 -- There are some examples of using this class and plugin
 -- at https://github.com/phadej/unsatisfiable/tree/master/unsatisfiable-examples/examples
