@@ -5,7 +5,7 @@ module Unsatisfiable.Plugin (
     plugin,
 ) where
 
-import Control.Monad          (forM_)
+import Control.Monad          (forM_, when)
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Functor           ((<&>))
 import Data.Maybe             (listToMaybe)
@@ -188,12 +188,18 @@ tcPluginSolve ctx givens _deriveds wanteds = do
             | defer_errors -> do
                 let solved' :: [(Plugins.TcPluginM GHC.EvTerm, GHC.Ct)]
                     solved' =
-                        [ (evDeferredUnsatisfiable ctx dflags msg (GHC.ctLocSpan $ GHC.ctLoc ct), ct)
+                        [ (evDeferredUnsatisfiable ctx dflags ty (GHC.ctLocSpan $ GHC.ctLoc ct), ct)
                         | ct <- wanteds
-                        , Just msg <- return (isUnsatisfiable ctx ct)
+                        , Just ty <- return (isUnsatisfiable ctx ct)
                         ]
 
                 solved <- (traverse . _1) id solved'
+
+                when (Plugins.wopt Plugins.Opt_WarnDeferredTypeErrors dflags) $ do
+                    forM_ solved $ \(_, ct) -> forM_ (isUnsatisfiable ctx ct) $ \ty -> Plugins.tcPluginIO $ do
+                        putWarn dflags (GHC.RealSrcSpan (GHC.ctLocSpan $ GHC.ctLoc ct) Nothing) Plugins.Opt_WarnDeferredTypeErrors $
+                            GHC.text "Unsatisfiable:" GHC.$$
+                            GHC.pprUserTypeErrorTy ty
 
                 debug $ do
                     forM_ solved $ \(t, _) -> Plugins.tcPluginIO $ do
@@ -269,6 +275,10 @@ debug _ = return ()
 putError :: MonadIO m => GHC.DynFlags -> GHC.SrcSpan -> GHC.SDoc -> m ()
 putError dflags l doc =
     liftIO $ GHC.putLogMsg dflags GHC.NoReason GHC.SevError l ERR_STYLE doc
+
+putWarn :: MonadIO m => GHC.DynFlags -> GHC.SrcSpan -> Plugins.WarningFlag -> GHC.SDoc -> m ()
+putWarn dflags l w doc =
+    liftIO $ GHC.putLogMsg dflags (GHC.Reason w) GHC.SevWarning l ERR_STYLE doc
 
 -------------------------------------------------------------------------------
 -- Names
