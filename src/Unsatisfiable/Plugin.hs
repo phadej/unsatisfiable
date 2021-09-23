@@ -99,6 +99,7 @@ tcPlugin = GHC.TcPlugin
 data PluginCtx = PluginCtx
     { unsatisfiableCls  :: GHC.Class
     , unsatisfiableExpr :: GHC.Var
+    , warningCls        :: GHC.Class
     }
 
 -------------------------------------------------------------------------------
@@ -126,6 +127,10 @@ tcPluginInit = do
         name <- Plugins.lookupOrig md (GHC.mkTcOcc "Unsatisfiable")
         Plugins.tcLookupClass name
 
+    warningCls <- do
+        name <- Plugins.lookupOrig md (GHC.mkTcOcc "Warning")
+        Plugins.tcLookupClass name
+
     unsatisfiableExpr <- do
         name <- Plugins.lookupOrig md (GHC.mkVarOcc "unsatisfiable_")
         Plugins.tcLookupId name
@@ -133,6 +138,7 @@ tcPluginInit = do
     debug $ do
         Plugins.tcPluginIO $ putStrLn $ GHC.showSDoc dflags $ GHC.ppr unsatisfiableCls
         Plugins.tcPluginIO $ putStrLn $ GHC.showSDoc dflags $ GHC.ppr unsatisfiableExpr
+        Plugins.tcPluginIO $ putStrLn $ GHC.showSDoc dflags $ GHC.ppr warningCls
         Plugins.tcPluginIO $ putStrLn $ GHC.showSDoc dflags $ GHC.ppr $ GHC.idScaledType unsatisfiableExpr
 
     return PluginCtx {..}
@@ -186,27 +192,41 @@ tcPluginSolve ctx givens _deriveds wanteds = do
         -- we pretty-print its message
         Nothing
             | defer_errors -> do
-                let solved' :: [(Plugins.TcPluginM GHC.EvTerm, GHC.Ct)]
-                    solved' =
+                let solvedU' :: [(Plugins.TcPluginM GHC.EvTerm, GHC.Ct)]
+                    solvedU' =
                         [ (evDeferredUnsatisfiable ctx dflags ty (GHC.ctLocSpan $ GHC.ctLoc ct), ct)
                         | ct <- wanteds
                         , Just ty <- return (isUnsatisfiable ctx ct)
                         ]
 
-                solved <- (traverse . _1) id solved'
+                let solvedW' :: [(Plugins.TcPluginM GHC.EvTerm, GHC.Ct)]
+                    solvedW' =
+                        [ (evSolvedWarning ctx dflags ty (GHC.ctLocSpan $ GHC.ctLoc ct), ct)
+                        | ct <- wanteds
+                        , Just ty <- return (isWarning ctx ct)
+                        ]
+
+                solvedU <- (traverse . _1) id solvedU'
+                solvedW <- (traverse . _1) id solvedW'
 
                 when (Plugins.wopt Plugins.Opt_WarnDeferredTypeErrors dflags) $ do
-                    forM_ solved $ \(_, ct) -> forM_ (isUnsatisfiable ctx ct) $ \ty -> Plugins.tcPluginIO $ do
+                    forM_ solvedU $ \(_, ct) -> forM_ (isUnsatisfiable ctx ct) $ \ty -> Plugins.tcPluginIO $ do
                         putWarn dflags (GHC.RealSrcSpan (GHC.ctLocSpan $ GHC.ctLoc ct) Nothing) Plugins.Opt_WarnDeferredTypeErrors $
                             GHC.text "Unsatisfiable:" GHC.$$
                             GHC.pprUserTypeErrorTy ty
 
+                when (Plugins.wopt Plugins.Opt_WarnWarningsDeprecations dflags) $ do
+                    forM_ solvedW $ \(_, ct) -> forM_ (isWarning ctx ct) $ \ty -> Plugins.tcPluginIO $ do
+                        putWarn dflags (GHC.RealSrcSpan (GHC.ctLocSpan $ GHC.ctLoc ct) Nothing) Plugins.Opt_WarnWarningsDeprecations $
+                            GHC.text "Warning instance:" GHC.$$
+                            GHC.pprUserTypeErrorTy ty
+
                 debug $ do
-                    forM_ solved $ \(t, _) -> Plugins.tcPluginIO $ do
+                    forM_ solvedU $ \(t, _) -> Plugins.tcPluginIO $ do
                         putStrLn $ GHC.showSDoc dflags $ GHC.ppr t
 
                 -- return solveds
-                return $ GHC.TcPluginOk solved []
+                return $ GHC.TcPluginOk (solvedU ++ solvedW) []
 
             | otherwise -> do
                 forM_ wanteds $ \ct -> forM_ (isUnsatisfiable ctx ct) $ \ty -> Plugins.tcPluginIO $ do
@@ -214,8 +234,23 @@ tcPluginSolve ctx givens _deriveds wanteds = do
                         GHC.text "Unsatisfiable:" GHC.$$
                         GHC.pprUserTypeErrorTy ty
 
+                let solvedW' :: [(Plugins.TcPluginM GHC.EvTerm, GHC.Ct)]
+                    solvedW' =
+                        [ (evSolvedWarning ctx dflags ty (GHC.ctLocSpan $ GHC.ctLoc ct), ct)
+                        | ct <- wanteds
+                        , Just ty <- return (isWarning ctx ct)
+                        ]
+
+                solvedW <- (traverse . _1) id solvedW'
+
+                when (Plugins.wopt Plugins.Opt_WarnWarningsDeprecations dflags) $ do
+                    forM_ solvedW $ \(_, ct) -> forM_ (isWarning ctx ct) $ \ty -> Plugins.tcPluginIO $ do
+                        putWarn dflags (GHC.RealSrcSpan (GHC.ctLocSpan $ GHC.ctLoc ct) Nothing) Plugins.Opt_WarnWarningsDeprecations $
+                            GHC.text "Warning instance:" GHC.$$
+                            GHC.pprUserTypeErrorTy ty
+
                 -- in this case we don't solve anything.
-                return $ GHC.TcPluginOk [] []
+                return $ GHC.TcPluginOk solvedW []
 
 evUnsatisfiable :: PluginCtx -> GHC.Type -> GHC.Ct -> GHC.Type -> GHC.EvTerm
 evUnsatisfiable ctx msg ct ty =
@@ -249,6 +284,16 @@ evDeferredUnsatisfiable ctx dflags msg loc = do
             GHC.pprUserTypeErrorTy msg GHC.$$
             GHC.text "(deferred unsatisfiable type error)"
 
+evSolvedWarning :: PluginCtx -> GHC.DynFlags -> GHC.Type -> Plugins.RealSrcSpan -> Plugins.TcPluginM GHC.EvTerm
+evSolvedWarning ctx _dflags msg _loc =
+    return $ GHC.EvExpr appDc
+  where
+    cls     = warningCls ctx
+    tyCon   = GHC.classTyCon cls
+    dc      = GHC.tyConSingleDataCon tyCon
+    appDc   = GHC.mkCoreConApps dc
+        [ GHC.Type msg
+        ]
 
 -- | Is the constraint a @Unsatisfiable msg@, if so, return @Just msg@.
 isUnsatisfiable :: PluginCtx -> GHC.Ct -> Maybe GHC.Type
@@ -257,6 +302,14 @@ isUnsatisfiable ctx (GHC.CDictCan _ev cls [ty] _pend_sc)
     = Just ty
 
 isUnsatisfiable _ _ = Nothing
+
+-- | Is the constraint a @Warning msg@, if so, return @Just msg@.
+isWarning :: PluginCtx -> GHC.Ct -> Maybe GHC.Type
+isWarning ctx (GHC.CDictCan _ev cls [ty] _pend_sc)
+    | cls == warningCls ctx
+    = Just ty
+
+isWarning _ _ = Nothing
 
 -------------------------------------------------------------------------------
 -- Diagnostics

@@ -8,6 +8,7 @@
 module Unsatisfiable.Class (
     Unsatisfiable,
     unsatisfiable,
+    Warning,
 ) where
 
 import GHC.TypeLits (ErrorMessage)
@@ -50,3 +51,6 @@ class Unsatisfiable (msg :: ErrorMessage) where
 --
 unsatisfiable :: forall msg a. Unsatisfiable msg => a
 unsatisfiable = unsatisfiable_ @msg @a
+
+-- | 'Warning' type-class.
+class Warning (msg :: ErrorMessage)

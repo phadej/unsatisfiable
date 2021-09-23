@@ -2,6 +2,7 @@
 module Unsatisfiable (
     Unsatisfiable,
     unsatisfiable,
+    Warning,
     plugin,
 ) where
 
