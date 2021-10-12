@@ -31,7 +31,9 @@ instance Ord a => Semigroup (Max a) where
     
 type Msg = 'Text "This Max is not a Monoid"
 instance Unsatisfiable Msg => Monoid (Max a) where
-    mempty = unsatisfiable @Msg
+    -- mempty = unsatisfiable @Msg
+    -- the @Msg is not even required
+    mempty = unsatisfiable
 
 main :: IO ()
 main = do
